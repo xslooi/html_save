@@ -166,17 +166,18 @@ function verity_url($url)
     $curl = curl_init(); // 启动一个CURL会话
 
     curl_setopt($curl, CURLOPT_URL, $url); // 要访问的地址
-    curl_setopt($curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+//    curl_setopt($curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
     curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // 对认证证书来源的检查
     curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2); // 从证书中检查SSL加密算法是否存在 只有在cURL低于7.28.1时CURLOPT_SSL_VERIFYHOST才支持使用1表示true，高于这个版本就需要使用2表示了（true也不行）。
     curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']); // 模拟用户使用的浏览器
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
     curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
-    curl_setopt($curl, CURLOPT_POST, 0); // 发送一个常规的Post请求
+//    curl_setopt($curl, CURLOPT_POST, 0); // 发送一个常规的Post请求
 //    curl_setopt($curl, CURLOPT_POSTFIELDS, $data); // Post提交的数据包
-    curl_setopt($curl, CURLOPT_TIMEOUT, 30); // 设置超时限制防止死循环
+    curl_setopt($curl, CURLOPT_TIMEOUT, 1000); // 设置超时限制防止死循环
     curl_setopt($curl, CURLOPT_HEADER, 1); // 显示返回的Header区域内容
     curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); // 获取的信息以文件流的形式返回
+    curl_setopt($curl, CURLOPT_ENCODING, ''); //允许执行gzip
 
     $tmpInfo = curl_exec($curl); // 执行操作
     if (curl_errno($curl)) {
@@ -215,6 +216,7 @@ function curl_downfile($url)
     $file_path = parse_downurl($url);
 
     if(!verity_url($url)){
+        echo "<span style='color:red'>VERITY：</span>" . $url . "____URL验证失败！<br />";
         log_record($url, 'verity_url');
         return false;
     }
@@ -222,10 +224,10 @@ function curl_downfile($url)
     echo "<span style='color:green'>URL：</span>" . $url . "____正在下载。。。<br />";
 
     if(createDir($file_path)){
-        echo "<span style='color:green'>PATH：</span>" . $file_path . "____目录创建成功！<br />";
+//        echo "<span style='color:green'>PATH：</span>" . $file_path . "____目录创建成功！<br />";
     }else{
         log_record($file_path, 'createDIR');
-        echo "<span style='color:red'>PATH：</span>" . $file_path . "____目录创建失败！<br />";
+//        echo "<span style='color:red'>PATH：</span>" . $file_path . "____目录创建失败！<br />";
     }
 
     if(file_exists($file_path)){
@@ -237,8 +239,11 @@ function curl_downfile($url)
     $fp = fopen($file_path,'wb');
     if(false === $fp){
         log_record($file_path, 'fopen');
-        echo "<span style='color:red'>FILE：</span>" . $file_path . "____文件创建失败！";
+        echo "<span style='color:red'>FILE：</span>" . $file_path . "____路径文件创建失败！<br />";
         return false;
+    }
+    else{
+        echo "<span style='color:green'>PATH：</span>" . $file_path . "____路径文件创建成功！<br />";
     }
 
     //curl 库开始下载
@@ -255,7 +260,7 @@ function curl_downfile($url)
     curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
 //    curl_setopt($curl, CURLOPT_POST, 1); // 发送一个常规的Post请求
 //    curl_setopt($curl, CURLOPT_POSTFIELDS, $data); // Post提交的数据包
-    curl_setopt($curl, CURLOPT_TIMEOUT, 30); // 设置超时限制防止死循环
+    curl_setopt($curl, CURLOPT_TIMEOUT, 2000); // 设置超时限制防止死循环
     curl_setopt($curl, CURLOPT_HEADER, 0); // 显示返回的Header区域内容
     curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); // 获取的信息以文件流的形式返回
 
@@ -269,7 +274,7 @@ function curl_downfile($url)
 
     try{
        $curl_rs = curl_exec($curl);
-       var_dump($curl_rs);
+//       var_dump($curl_rs);
     }catch(Exception $e){
         log_record($e->getMessage(), 'curl down');
         var_dump($e->getMessage());

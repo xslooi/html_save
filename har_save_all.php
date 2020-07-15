@@ -29,12 +29,25 @@ if(!function_exists('curl_init')){
 if(!function_exists('mb_detect_encoding')){
     exit('PHP_EXTENDS mb_* Not Exists!');
 }
+// 检测模块是否加载
+//var_dump(get_loaded_extensions());
+//var_dump(get_extension_funcs('openssl'));
+//var_dump(get_defined_functions ());
+//var_dump(extension_loaded('openssl'));
+if(!function_exists('openssl_open')){
+    exit('PHP_EXTENDS openssl Not Exists!');
+}
+
+//var_dump(ini_get('upload_max_filesize'));
+//var_dump(ini_get('post_max_size'));
 
 define('ROOT_DIR', str_replace("\\", '/', dirname(__FILE__)));
 define('DEBUG_HAR', true);
 
 $cache_ok = isset($_GET['cache_ok']) ? $_GET['cache_ok'] : false;
 $SAVE_DIR = isset($_REQUEST['save_dir']) ? $_REQUEST['save_dir'] : '';
+$cookieSiteurl = isset($_COOKIE['siteurl']) ? $_COOKIE['siteurl'] : '';
+
 //endregion
 //===================================================================================================
 //  界面设计
@@ -50,7 +63,7 @@ echo "<fieldset>";
 if($cache_ok){
     echo "<legend>消息提示框</legend>";
     echo "<form name='htmlsave' action='har_setp_down.php' method='post'  enctype='multipart/form-data' target='iframeState'>";
-    echo " <iframe id='iframeState' name='iframeState' width='800' height='300' frameborder='1'></iframe>";
+    echo " <iframe id='iframeState' name='iframeState' width='100%' height='300' frameborder='1'></iframe><br >";
     echo "<input type='hidden' name='save_dir' value='{$SAVE_DIR}' />";
     echo "【<input type='submit' value='开始下载' />】";
     echo "【<a href='har_save_all.php'>  返回主页 </a>】";
@@ -65,8 +78,8 @@ else{
     echo "<legend>请输入解析Har资料</legend>";
     //1、 通过网址直接 保存
     echo "<form name='htmlsave' action='' method='post'  enctype='multipart/form-data'>";
-    echo "1、保存目录或网址：<input type='text' value='' name='siteurl' style='width:800px;border: 2px solid green;height: 30px;'/> <span style='color:red'>* 必填 </span> ";
-    echo "<hr />";
+    echo "1、保存目录或网址：<input type='text' value='{$cookieSiteurl}' name='siteurl' style='width:800px;border: 2px solid green;height: 30px;'/> ";
+    echo "<span style='color:red'>* 必填 （网站主域名需要带协议，可以 / 结尾，二级页面也用主域名不用带参数） </span> <hr />";
 //2、通过直接复制 浏览器的源码  保存
 //    echo "2、网页源代码：<textarea name='sitecode' rows='20' cols='100' style='border: 2px solid green;'></textarea>";
     echo "2、Har文件选择：<input type='file' name='har_file' />";
@@ -86,10 +99,19 @@ echo "</body></html>";
 $SITE_URL = empty($_POST['siteurl']) ? '' : $_POST['siteurl'];
 if(empty($_POST['siteurl'])){showMsg('请输入保存目录或网址');exit;}
 
+// 存储网页原网址
+if(!empty($SITE_URL)){
+    setcookie('siteurl', $SITE_URL, time() + 3600, '/');
+}
+
 $save_path = '';
 $upload_state = false;
 $save_dir = get_domian($SITE_URL);
 
+if(empty($save_dir)){
+    showMsg('Save dir Error!'); exit;//上传失败，返回
+
+}
 if(!is_dir($save_dir)){
     mkdir($save_dir);
 }
@@ -162,6 +184,7 @@ file_put_contents($save_html_path, $SITE_BODY);
 //解析是否完成？
 if($har_parse_rs){
     echo "
+   <a href='har_save_all.php?cache_ok=1&save_dir='" . ($save_dir) . "'>解析完成跳转下载页面</a>
    <script>
         setTimeout(function(){location.href='har_save_all.php?cache_ok=1&save_dir=' + encodeURI('" . ($save_dir) . "');},100);
    </script>
@@ -211,7 +234,7 @@ function har_parse($har_path){
                 //解析提取出来的参数
                 $request_arr = array(
                     'url' => $item['request']['url'],
-                    'mimeType' => $item['response']['content']['mimeType'],
+                    'mimeType' => isset($item['response']['content']['mimeType']) ? $item['response']['content']['mimeType'] : '',
                 );
                 $parse_result[] = $request_arr;
             }
@@ -334,6 +357,10 @@ function verity_url($url)
 function get_domian($url){
     $host = parse_url($url, PHP_URL_HOST);
 
+    if(empty($host)){
+        return $url;
+    }
+
     if(1 < substr_count($host, '.')){
         $domain = substr($host,strpos($host,".") + 1);
     }else{
@@ -407,6 +434,7 @@ function log_record($data){
 /**
  * 是否跳过某个网址的资源？如：百度地图、53客服、cnzz等
  * TODO 此函数需要后期编辑，新增网址
+ * bug：如有百度网址的资源则不能下载
  * @param $url
  * @return bool
  */
@@ -414,19 +442,14 @@ function is_skip_url($url){
     $is_skip = false;
 
     $skip_urls = array(
-        'https://www.baidu.com/',
-        'https://tb.53kf.com/',
-        'https://s13.cnzz.com/',
-        'https://libs.baidu.com/',
-        'https://c.cnzz.com/',
-        'https://cnzz.mmstat.com/',
-        'https://z7.cnzz.com/',
+        'baidu.com',
+        '53kf.com',
+        'cnzz.com',
+        'mmstat.com',
     );
 
-    $host = parse_url($url, PHP_URL_HOST);
-
     foreach($skip_urls as $item){
-        if(false !== stripos($item, $host)){
+        if(false !== stripos($url, $item)){
             $is_skip = true;
             log_record($url);  //写入跳过日志
             break;

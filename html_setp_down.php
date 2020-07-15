@@ -156,10 +156,10 @@ function down_setp($count, $filename, $downloadArray){
     $down_result = curl_downfile($downloadArray[$i], $filename);
 
     if($down_result){
-        echo $downloadArray[$i] . "----下载完成！<br /><hr />";
+        echo "<span style='color: green;'>" . $downloadArray[$i] . "----下载完成！</span><br /><hr />";
     }else{
         log_record($downloadArray[$i]);
-        echo $downloadArray[$i] . "----下载失败！<br /><hr />";
+        echo "<span style='color: red;'>" . $downloadArray[$i] . "----下载失败！<br /><hr />";
     }
 
 
@@ -171,7 +171,7 @@ function down_setp($count, $filename, $downloadArray){
 
 //    解析已经下载的 css 文件里边的 资源内容
     if('useful_css_hrefs.log' == $filename){
-        echo "下载的是css文件！<br />";
+        echo "<span style='color: blue;'>" . "下载的是css文件！开始解析。。。</span><br />";
 
         $fileurl = parse_downurl($downloadArray[$i]);
         $css_codes = file_get_contents($fileurl);
@@ -310,27 +310,26 @@ function curl_downfile($url, $filename='')
     $fileurl = parse_downurl($url, $filename);
     $url = get_http_url($url);
 
-    echo 'File Save : ';
-    echo($fileurl);
-    echo '<br />';
+    // 跳过某些url
+    if(is_skip_url($url)){
+        return false;
+    }
+
+    echo "<span style='color: green;'>" . 'File Save Path: ' . $fileurl . '<br />';
 //exit;
-    echo 'File Get : ';
-    echo($url);
-    echo '<br />';
+    echo "<span style='color: green;'>" . 'File Get URL: ' . $url . '<br />';
 
 //    exit;
     if(!verity_url($url)){
         log_record($url);
         return false;
     }
-    echo $url . "____正在下载。。。<br />";
-//exit;
 
     if(createDir($fileurl)){
-        echo $fileurl . "____目录创建成功！<br />";
+//        echo "<span style='color: green;'>" . $fileurl . "____文件路径创建成功！</span><br />";
     }else{
         log_record($fileurl);
-        echo "目录创建失败 <br />";
+//        echo "<span style='color: red;'>" . $fileurl . "____文件路径创建失败！</span><br />";
     }
 //exit;
     if(file_exists($fileurl)){
@@ -343,7 +342,7 @@ function curl_downfile($url, $filename='')
     $fp = fopen($fileurl,'wb');
     if(false === $fp){
         log_record($fileurl);
-        echo '' . $fileurl . '创建失败！';
+        echo "<span style='color: red;'>" . $fileurl . "____文件路径创建失败！</span><br />";
         return false;
     }
 
@@ -354,12 +353,17 @@ function curl_downfile($url, $filename='')
     curl_setopt($curl,CURLOPT_HEADER,0);
     curl_setopt($curl,CURLOPT_FOLLOWLOCATION,1);
     curl_setopt($curl,CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)');
-    curl_setopt($curl,CURLOPT_TIMEOUT,300);
+//    curl_setopt($curl,CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']);
+    curl_setopt($curl,CURLOPT_TIMEOUT,1000);
     curl_setopt($curl,CURLOPT_HTTP_VERSION, '1.0');
     curl_setopt($curl,CURLOPT_HTTPHEADER, array (
         "Accept-Language: zh-cn",
         "Accept-Encoding: identity"
     ));
+
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+
 
     try{
         curl_exec($curl);
@@ -595,5 +599,34 @@ function log_record($data){
     $save_dir = get_save_dir($SAVE_DIR);
 
     file_put_contents($save_dir . '/down_error.log', var_export($data, true) . "\r\n\r\n", FILE_APPEND);
+}
+
+
+/**
+ * 是否跳过某个网址的资源？如：百度地图、53客服、cnzz等
+ * TODO 此函数需要后期编辑，新增网址
+ * bug：如有百度网址的资源则不能下载
+ * @param $url
+ * @return bool
+ */
+function is_skip_url($url){
+    $is_skip = false;
+
+    $skip_urls = array(
+        'baidu.com',
+        '53kf.com',
+        'cnzz.com',
+        'mmstat.com',
+    );
+
+    foreach($skip_urls as $item){
+        if(false !== stripos($url, $item)){
+            $is_skip = true;
+            log_record($url);  //写入跳过日志
+            break;
+        }
+    }
+
+    return $is_skip;
 }
 //endregion

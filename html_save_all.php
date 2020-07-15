@@ -44,9 +44,18 @@ if(!function_exists('curl_init')){
 if(!function_exists('mb_detect_encoding')){
     exit('PHP_EXTENDS mb_* Not Exists!');
 }
+// 检测模块是否加载
+//var_dump(get_loaded_extensions());
+//var_dump(get_extension_funcs('openssl'));
+//var_dump(get_defined_functions ());
+//var_dump(extension_loaded('openssl'));
+if(!function_exists('openssl_open')){
+    exit('PHP_EXTENDS openssl Not Exists!');
+}
 
 $cache_ok = isset($_GET['cache_ok']) ? $_GET['cache_ok'] : false;
 $SAVE_DIR = isset($_REQUEST['save_dir']) ? $_REQUEST['save_dir'] : '';
+$cookieSiteurl = isset($_COOKIE['siteurl']) ? $_COOKIE['siteurl'] : '';
 //endregion
 //===================================================================================================
 //  界面设计
@@ -62,7 +71,7 @@ echo "<fieldset>";
 if($cache_ok){
     echo "<legend>消息提示框</legend>";
     echo "<form name='htmlsave' action='html_setp_down.php' method='post'  enctype='multipart/form-data' target='iframeState'>";
-    echo " <iframe id='iframeState' name='iframeState' width='800' height='300' frameborder='1'></iframe>";
+    echo " <iframe id='iframeState' name='iframeState' width='100%' height='300' frameborder='1'></iframe> <br >";
     echo "<input type='hidden' name='save_dir' value='{$SAVE_DIR}' />";
     echo "【<input type='submit' value='开始下载' />】";
     echo "【<a href='html_save_all.php'>  返回主页 </a>】";
@@ -77,10 +86,11 @@ else{
     echo "<legend>请输入网址或者和源码</legend>";
     //1、 通过网址直接 保存
     echo "<form name='htmlsave' action='' method='post'  enctype='multipart/form-data'>";
-    echo "1、网页源网址：<input type='text' value='' name='siteurl' style='width:800px;border: 2px solid green;height: 30px;' placeholder='请输入网址不带参数'/> <span style='color:red'>* 必填 </span> ";
-    echo "<hr />";
-//2、通过直接复制 浏览器的源码  保存
+    echo "1、网页源网址：<input id='siteurl' type='text' value='{$cookieSiteurl}' name='siteurl' style='width:800px;border: 2px solid green;height: 30px;' placeholder='请输入网址不带参数'/>";
+    echo "<span style='color:red'>* 必填（可以只写网址-网页自动下载，需要带上协议如：http://www.baidu.com） </span> <hr />";
+    //2、通过直接复制 浏览器的源码  保存
     echo "2、网页源代码：<textarea name='sitecode' rows='20' cols='100' style='border: 2px solid green;' placeholder='请输入网页源代码'></textarea>";
+    echo "<span style='color:red'>（填写源码后则网页只保存源码部分） </span> ";
     echo "【<a href='index.html'>  返回功能选择页面 </a>】<hr />";
     echo "<input type='submit' value='提交' style='width: 300px;height: 50px;' />";
     echo "</form>";
@@ -104,6 +114,11 @@ if(get_magic_quotes_gpc()){
 $SITE_URL = urldecode($SITE_URL);
 $SITE_URL = trim($SITE_URL, '/');
 
+// 存储网页原网址
+if(!empty($SITE_URL)){
+    setcookie('siteurl', $SITE_URL, time() + 3600, '/');
+}
+
 //初始化 资源文件 数组
 $useful_img_srcs = array();
 $useful_js_srcs = array();
@@ -118,8 +133,14 @@ if(check_url($SITE_URL)){
     if(verity_url($SITE_URL)){
 
         $SITE_CODE = empty($SITE_CODE) ? get_html_code($SITE_URL) : $SITE_CODE;
-        $SITE_BODY = $SITE_CODE; //没有预处理的HTML代码
-
+        $SITE_BODY = $SITE_CODE;
+        //HTML代码替换为本地路径
+        $SITE_BODY = str_ireplace($SITE_URL, '', $SITE_BODY);
+        $SITE_BODY = str_ireplace('href="/', 'href="', $SITE_BODY);
+        $SITE_BODY = str_ireplace("href='/", "href='", $SITE_BODY);
+        $SITE_BODY = str_ireplace('src="/', 'src="', $SITE_BODY);
+        $SITE_BODY = str_ireplace("src='/", "src='", $SITE_BODY);
+        // 网页代码替换为本地END
 //        $SITE_CODE = <<<HTML
 //        <style>
 //        .body{background: url(http://pmo7fc8f3.pic34.websiteonline.cn/upload/4_dhk1.jpg)}
@@ -161,8 +182,6 @@ if(check_url($SITE_URL)){
         $useful_css_hrefs = array_values($useful_css_hrefs);
 
 
-
-
 //        编码检测与转换 windows 系统
         $textEncode = get_encode($SAVE_DIR);
 //        var_dump($textEncode);
@@ -196,7 +215,7 @@ if(check_url($SITE_URL)){
 
         echo "
    <script>
-        setTimeout(function(){location.href='html_save_all.php?cache_ok=1&save_dir=' + encodeURI('" . ($SAVE_DIR) . "');},100);
+        setTimeout(function(){location.href='html_save_all.php?cache_ok=1&save_dir=' + encodeURI('" . ($SAVE_DIR) . "');},1000);
    </script>
 ";
 
@@ -360,14 +379,40 @@ function parse_js_src(&$body, $matchAtomic = 2){
  * @return mixed
  */
 function get_html_code($url){
-    $ch = curl_init();
-    $timeout = 10;
-    curl_setopt ($ch, CURLOPT_URL, $url);
-    curl_setopt ($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt ($ch, CURLOPT_USERAGENT, "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)");
-    curl_setopt ($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
-    $contents = curl_exec($ch);
-    curl_close($ch);
+    //curl 库开始下载
+    $curl = curl_init();
+    curl_setopt($curl,CURLOPT_URL, $url); // 要访问的地址
+
+//    curl_setopt($curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);  //证书问题
+    curl_setopt($curl, CURLOPT_ENCODING, 'gzip'); //curl解压gzip页面内容
+
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // 对认证证书来源的检查
+    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2); // 从证书中检查SSL加密算法是否存在 只有在cURL低于7.28.1时CURLOPT_SSL_VERIFYHOST才支持使用1表示true，高于这个版本就需要使用2表示了（true也不行）。
+    curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']); // 模拟用户使用的浏览器
+    curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
+    curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
+//    curl_setopt($curl, CURLOPT_POST, 1); // 发送一个常规的Post请求
+//    curl_setopt($curl, CURLOPT_POSTFIELDS, $data); // Post提交的数据包
+    curl_setopt($curl, CURLOPT_TIMEOUT, 2000); // 设置超时限制防止死循环
+    curl_setopt($curl, CURLOPT_HEADER, 0); // 显示返回的Header区域内容
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); // 获取的信息以文件流的形式返回
+
+    curl_setopt($curl,CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+//    curl_setopt($curl,CURLOPT_HTTPHEADER, array (
+//        "Accept-Language: zh-cn",
+//        "Accept-Encoding: identity"
+//    ));
+
+//    curl_setopt($curl,CURLOPT_FILE, $fp); //设置下载文件名称
+
+    try{
+        $contents = curl_exec($curl);
+    }catch(Exception $e){
+        var_dump($e->getMessage());
+    }
+
+    curl_close($curl);
+//    fclose($fp);
     return $contents;
 }
 
@@ -487,4 +532,5 @@ function chinese_test($str){
 
     return false;
 }
+
 //endregion
