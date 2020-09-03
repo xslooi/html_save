@@ -118,6 +118,33 @@ $SITE_URL = trim($SITE_URL, '/');
 if(!empty($SITE_URL)){
     setcookie('siteurl', $SITE_URL, time() + 3600, '/');
 }
+else{
+    if(empty($cookieSiteurl)){
+        // 删除所有cookie
+        echo "<script>
+			+function(){
+			    var cookies = document.cookie.split(\";\");
+                var domain = '.'+location.host;
+                console.log(cookies);
+                    for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i];
+                    var eqPos = cookie.indexOf(\"=\");
+                    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                    document.cookie = name + \"=;expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=\"+domain+\"; path=/\";
+                    }
+                if(cookies.length > 0)
+                {
+                    for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i];
+                    var eqPos = cookie.indexOf(\"=\");
+                    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                    document.cookie = name + \"=;expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=\"+domain+\"; path=/\";
+                    }
+                }
+			}();
+</script>";
+    }
+}
 
 //初始化 资源文件 数组
 $useful_img_srcs = array();
