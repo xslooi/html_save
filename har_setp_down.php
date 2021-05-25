@@ -37,6 +37,7 @@ if(file_exists('./' .$SAVE_DIR. '/'. 'har_config.php')){
 
     $SAVE_DIR = empty($useful_dir['save_dir']) ? '' : $useful_dir['save_dir'];
     $HAR_PATH = empty($useful_dir['har_path']) ? '' : $useful_dir['har_path'];
+    $ISMOBILE = empty($useful_dir['ismobile']) ? '' : $useful_dir['ismobile'];
 
 }else{
     echo "不存在har_config.php缓存文件！请返回主页重新下载<br/>";
@@ -162,14 +163,23 @@ function down_setp($count, $filename, $downloadArray){
  */
 function verity_url($url)
 {
+    global $ISMOBILE;
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    //添加手机版UA
+    if($ISMOBILE){
+        $user_agent = 'Mozilla/5.0 (Linux; Android 9.0; BKL-AL20 Build/HUAWEIBKL-AL20; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044409 Mobile Safari/537.36 wxwork/2.7.2 MicroMessenger/6.3.22 NetType/WIFI Language/zh';
+    }
+
     // 模拟提交数据函数
     $curl = curl_init(); // 启动一个CURL会话
 
     curl_setopt($curl, CURLOPT_URL, $url); // 要访问的地址
 //    curl_setopt($curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+    curl_setopt($curl, CURLOPT_ENCODING, 'gzip'); //curl解压gzip页面内容
+
     curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // 对认证证书来源的检查
     curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2); // 从证书中检查SSL加密算法是否存在 只有在cURL低于7.28.1时CURLOPT_SSL_VERIFYHOST才支持使用1表示true，高于这个版本就需要使用2表示了（true也不行）。
-    curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']); // 模拟用户使用的浏览器
+    curl_setopt($curl, CURLOPT_USERAGENT, $user_agent); // 模拟用户使用的浏览器
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
     curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
 //    curl_setopt($curl, CURLOPT_POST, 0); // 发送一个常规的Post请求
@@ -212,6 +222,12 @@ function verity_url($url)
  */
 function curl_downfile($url)
 {
+    global $ISMOBILE;
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    //添加手机版UA
+    if($ISMOBILE){
+        $user_agent = 'Mozilla/5.0 (Linux; Android 9.0; BKL-AL20 Build/HUAWEIBKL-AL20; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044409 Mobile Safari/537.36 wxwork/2.7.2 MicroMessenger/6.3.22 NetType/WIFI Language/zh';
+    }
 
     $file_path = parse_downurl($url);
 
@@ -255,7 +271,7 @@ function curl_downfile($url)
 
     curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // 对认证证书来源的检查
     curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2); // 从证书中检查SSL加密算法是否存在 只有在cURL低于7.28.1时CURLOPT_SSL_VERIFYHOST才支持使用1表示true，高于这个版本就需要使用2表示了（true也不行）。
-    curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']); // 模拟用户使用的浏览器
+    curl_setopt($curl, CURLOPT_USERAGENT, $user_agent); // 模拟用户使用的浏览器
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
     curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
 //    curl_setopt($curl, CURLOPT_POST, 1); // 发送一个常规的Post请求

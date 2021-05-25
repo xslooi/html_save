@@ -42,7 +42,7 @@ if(!function_exists('openssl_open')){
 //var_dump(ini_get('post_max_size'));
 
 define('ROOT_DIR', str_replace("\\", '/', dirname(__FILE__)));
-define('DEBUG_HAR', true);
+define('DEBUG_HAR', false); // 显示解析bug信息
 
 $cache_ok = isset($_GET['cache_ok']) ? $_GET['cache_ok'] : false;
 $SAVE_DIR = isset($_REQUEST['save_dir']) ? $_REQUEST['save_dir'] : '';
@@ -78,7 +78,8 @@ else{
     echo "<legend>请输入解析Har资料</legend>";
     //1、 通过网址直接 保存
     echo "<form name='htmlsave' action='' method='post'  enctype='multipart/form-data'>";
-    echo "1、保存目录或网址：<input type='text' value='{$cookieSiteurl}' name='siteurl' style='width:800px;border: 2px solid green;height: 30px;'/> ";
+    echo "1、保存目录或网址：<input type='text' value='{$cookieSiteurl}' name='siteurl' style='width:600px;border: 2px solid green;height: 30px;'/> ";
+    echo "【<input type='checkbox' name='ismobile' id='ismobile' value='1'><label for='ismobile'>手机版</label>（仅对下载HTML有效）】";
     echo "<span style='color:red'>* 必填 （网站主域名需要带协议，可以 / 结尾，二级页面也用主域名不用带参数） </span> <hr />";
 //2、通过直接复制 浏览器的源码  保存
 //    echo "2、网页源代码：<textarea name='sitecode' rows='20' cols='100' style='border: 2px solid green;'></textarea>";
@@ -108,13 +109,7 @@ else{
 			+function(){
 			    var cookies = document.cookie.split(\";\");
                 var domain = '.'+location.host;
-                console.log(cookies);
-                    for (var i = 0; i < cookies.length; i++) {
-                    var cookie = cookies[i];
-                    var eqPos = cookie.indexOf(\"=\");
-                    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-                    document.cookie = name + \"=;expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=\"+domain+\"; path=/\";
-                    }
+
                 if(cookies.length > 0)
                 {
                     for (var i = 0; i < cookies.length; i++) {
@@ -130,8 +125,7 @@ else{
 }
 
 if(empty($_POST['siteurl'])){showMsg('请输入保存目录或网址');exit;}
-
-
+$ismobile = isset($_POST['ismobile']) ? true : false;
 
 $save_path = '';
 $upload_state = false;
@@ -139,23 +133,29 @@ $save_dir = get_domian($SITE_URL);
 
 if(empty($save_dir)){
     showMsg('Save dir Error!'); exit;//上传失败，返回
-
 }
+
 if(!is_dir($save_dir)){
     mkdir($save_dir);
 }
 
 //简单的文件上传处理
 if(isset($_FILES['har_file']) && empty($_FILES['har_file']['error'])){
-    $save_path = ROOT_DIR . '/' . $save_dir . '/' . md5($_FILES['har_file']['name']) . '.' . pathinfo($_FILES['har_file']['name'], PATHINFO_EXTENSION);
+    $ext = pathinfo($_FILES['har_file']['name'], PATHINFO_EXTENSION);
+    if('har' != strtolower($ext)){
+        showMsg('har_file Type Error! extension = ' . $ext, 'error');
+        exit;//上传失败，返回
+    }
+    $save_path = ROOT_DIR . '/' . $save_dir . '/' . md5($_FILES['har_file']['name']) . '.' . $ext;
     $upload_state = move_uploaded_file($_FILES['har_file']['tmp_name'], $save_path);
-}else{
+}
+else{
     showMsg('har_file upload Error!'); exit;//上传失败，返回
 }
 
 if($upload_state){
     debugMsg('$har_file OK 文件上传成功');
-    $data = array('save_dir'=> $save_dir, 'har_path'=>$save_path);
+    $data = array('save_dir'=> $save_dir, 'har_path'=>$save_path, 'ismobile'=>$ismobile);
     file_put_contents($save_dir . '/har_config.php', configFileFormat($data));
 }
 
@@ -164,8 +164,6 @@ $har_config = include $save_dir . "/har_config.php";
 
 //开始解析
 $har_parse_rs = har_parse($har_config['har_path']);
-
-
 
 //todo 直接下载url中的HTML保存，并删除http://www.xxx.com/
 //1、保存HTML文件
@@ -192,7 +190,7 @@ $replace_urls = array_unique($replace_urls);
 //2、去掉//开头的网址
 //3、去掉/的相对路径网址
 
-$SITE_BODY = get_html_code($SITE_URL);
+$SITE_BODY = get_html_code($SITE_URL, $ismobile);
 $SITE_BODY = str_ireplace($replace_urls, '', $SITE_BODY);
 foreach($replace_urls as $key=>$value){
     $replace_urls[$key] = str_ireplace(array('http:', 'https:'), '', $value);
@@ -226,9 +224,6 @@ if($har_parse_rs){
 //  解析函数库
 //===================================================================================================
 //region
-
-
-
 
 
 //endregion
@@ -305,25 +300,69 @@ function configFileFormat($data)
  * @param $url
  * @return mixed
  */
-function get_html_code($url){
-    $ch = curl_init();
-    $timeout = 10;
-    curl_setopt ($ch, CURLOPT_URL, $url);
-    curl_setopt ($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt ($ch, CURLOPT_USERAGENT, "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)");
-    curl_setopt ($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
-    $contents = curl_exec($ch);
-    curl_close($ch);
+function get_html_code($url, $ismobile=false){
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    //添加手机版UA
+    if($ismobile){
+        $user_agent = 'Mozilla/5.0 (Linux; Android 9.0; BKL-AL20 Build/HUAWEIBKL-AL20; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044409 Mobile Safari/537.36 wxwork/2.7.2 MicroMessenger/6.3.22 NetType/WIFI Language/zh';
+    }
+
+    //curl 库开始下载
+    $curl = curl_init();
+    curl_setopt($curl,CURLOPT_URL, $url); // 要访问的地址
+
+//    curl_setopt($curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);  //证书问题
+    curl_setopt($curl, CURLOPT_ENCODING, 'gzip'); //curl解压gzip页面内容
+
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // 对认证证书来源的检查
+    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2); // 从证书中检查SSL加密算法是否存在 只有在cURL低于7.28.1时CURLOPT_SSL_VERIFYHOST才支持使用1表示true，高于这个版本就需要使用2表示了（true也不行）。
+    curl_setopt($curl, CURLOPT_USERAGENT, $user_agent); // 模拟用户使用的浏览器
+    curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
+    curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
+//    curl_setopt($curl, CURLOPT_POST, 1); // 发送一个常规的Post请求
+//    curl_setopt($curl, CURLOPT_POSTFIELDS, $data); // Post提交的数据包
+    curl_setopt($curl, CURLOPT_TIMEOUT, 10000); // 设置超时限制防止死循环
+    curl_setopt($curl, CURLOPT_HEADER, 0); // 显示返回的Header区域内容
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); // 获取的信息以文件流的形式返回
+
+    curl_setopt($curl,CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+//    curl_setopt($curl,CURLOPT_HTTPHEADER, array (
+//        "Accept-Language: zh-cn",
+//        "Accept-Encoding: identity"
+//    ));
+
+//    curl_setopt($curl,CURLOPT_FILE, $fp); //设置下载文件名称
+
+    try{
+        $contents = curl_exec($curl);
+    }catch(Exception $e){
+        var_dump($e->getMessage());
+    }
+
+    curl_close($curl);
+//    fclose($fp);
     return $contents;
 }
 
 
 /**
  * 显示信息
- * @param string $msg
+ * @param string $msg 显示信息
+ * @param string $type 字体颜色 success: green, warning: orange, error: red, default: blue
  */
-function showMsg($msg = ''){
-    echo "<h1 style='color:red;'>提示信息：{$msg}</h1>";
+function showMsg($msg = '', $type='blue'){
+    if('success' == $type){
+        echo "<h1 style='color:green;'>提示信息：{$msg}</h1>";
+    }
+    elseif('warning' == $type){
+        echo "<h1 style='color:orange;'>提示信息：{$msg}</h1>";
+    }
+    elseif('error' == $type){
+        echo "<h1 style='color:red;'>提示信息：{$msg}</h1>";
+    }
+    else{
+        echo "<h1 style='color:blue;'>提示信息：{$msg}</h1>";
+    }
 }
 
 /**

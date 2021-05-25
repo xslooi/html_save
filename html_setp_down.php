@@ -20,6 +20,7 @@ header('Pragma:no-cache');
 echo "<h1 style='color: red;'>当前时间" . date("Y-m-d H:i:s") . '--' . getMillisecond() . "</h1><hr />";
 
 $SAVE_DIR = isset($_REQUEST['save_dir']) ? $_REQUEST['save_dir'] : '';
+$ISMOBILE = empty($_REQUEST['ismobile']) ? '' : $_REQUEST['ismobile'];
 
 //编码检测与转换 windows 系统
 $is_chinese = chinese_test($SAVE_DIR);
@@ -119,7 +120,7 @@ echo "<script>alert('恭喜，全部文件下载完成！');</script>";
  * @param $downloadArray
  */
 function down_setp($count, $filename, $downloadArray){
-    global $SAVE_DIR;
+    global $SAVE_DIR, $ISMOBILE;
 
 //    var_dump($filename);exit;
 //    检测编码与转换
@@ -138,7 +139,7 @@ function down_setp($count, $filename, $downloadArray){
 
                <script>
                    parent.document.getElementById('msg').innerHTML += '<h1>{$filename}----下载完成！</h1>';
-                   setTimeout(function(){location.href='html_setp_down.php?save_dir=' + encodeURI('" . ($SAVE_DIR) . "');},100);
+                   setTimeout(function(){location.href='html_setp_down.php?save_dir=' + encodeURI('" . ($SAVE_DIR) . "') + '&ismobile=" . ($ISMOBILE) . "';}, 100);
                </script>
             
             ";
@@ -237,11 +238,11 @@ function down_setp($count, $filename, $downloadArray){
     echo "
            正在下载{$i}----{$downloadArray[$i]} <br />
             <script>
-             parent.document.getElementById('nextBtn').setAttribute('href', 'html_setp_down.php?setp=" . ($i+1) ."&save_dir=' + encodeURI('" . ($SAVE_DIR) . "'));
+             parent.document.getElementById('nextBtn').setAttribute('href', 'html_setp_down.php?setp=" . ($i+1) ."&save_dir=' + encodeURI('" . ($SAVE_DIR) . "') + '&ismobile=" . ($ISMOBILE) . "');
             </script>
             
            <script>    
-              setTimeout(function(){location.href='html_setp_down.php?setp={$i}&save_dir=' + encodeURI('" . ($SAVE_DIR) . "');},100);
+              setTimeout(function(){location.href='html_setp_down.php?setp={$i}&save_dir=' + encodeURI('" . ($SAVE_DIR) . "') + '&ismobile=" . ($ISMOBILE) . "';}, 100);
            </script>
            
            <script>
@@ -301,11 +302,17 @@ function verity_url($url)
 
 /**
  * curl 下载 文件
- * @param $url  参数是 没有域名的 url 如： /upload/img/20170332.jpg
+ * @param string $url  参数是 没有域名的 url 如： /upload/img/20170332.jpg
  * @return bool
  */
 function curl_downfile($url, $filename='')
 {
+    global $ISMOBILE;
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    //添加手机版UA
+    if($ISMOBILE){
+        $user_agent = 'Mozilla/5.0 (Linux; Android 9.0; BKL-AL20 Build/HUAWEIBKL-AL20; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044409 Mobile Safari/537.36 wxwork/2.7.2 MicroMessenger/6.3.22 NetType/WIFI Language/zh';
+    }
 
     $fileurl = parse_downurl($url, $filename);
     $url = get_http_url($url);
@@ -347,26 +354,35 @@ function curl_downfile($url, $filename='')
     }
 
 
+    //curl 库开始下载
     $curl = curl_init();
-    curl_setopt($curl,CURLOPT_URL, $url);
-    curl_setopt($curl,CURLOPT_FILE, $fp);
-    curl_setopt($curl,CURLOPT_HEADER,0);
-    curl_setopt($curl,CURLOPT_FOLLOWLOCATION,1);
-    curl_setopt($curl,CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)');
-//    curl_setopt($curl,CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']);
-    curl_setopt($curl,CURLOPT_TIMEOUT,1000);
-    curl_setopt($curl,CURLOPT_HTTP_VERSION, '1.0');
-    curl_setopt($curl,CURLOPT_HTTPHEADER, array (
-        "Accept-Language: zh-cn",
-        "Accept-Encoding: identity"
-    ));
+    curl_setopt($curl,CURLOPT_URL, $url); // 要访问的地址
 
-    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+//    curl_setopt($curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);  //证书问题
+    curl_setopt($curl, CURLOPT_ENCODING, 'gzip'); //curl解压gzip页面内容
 
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // 对认证证书来源的检查
+    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2); // 从证书中检查SSL加密算法是否存在 只有在cURL低于7.28.1时CURLOPT_SSL_VERIFYHOST才支持使用1表示true，高于这个版本就需要使用2表示了（true也不行）。
+    curl_setopt($curl, CURLOPT_USERAGENT, $user_agent); // 模拟用户使用的浏览器
+    curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
+    curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
+//    curl_setopt($curl, CURLOPT_POST, 1); // 发送一个常规的Post请求
+//    curl_setopt($curl, CURLOPT_POSTFIELDS, $data); // Post提交的数据包
+    curl_setopt($curl, CURLOPT_TIMEOUT, 2000); // 设置超时限制防止死循环
+    curl_setopt($curl, CURLOPT_HEADER, 0); // 显示返回的Header区域内容
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); // 获取的信息以文件流的形式返回
+
+    curl_setopt($curl,CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+//    curl_setopt($curl,CURLOPT_HTTPHEADER, array (
+//        "Accept-Language: zh-cn",
+//        "Accept-Encoding: identity"
+//    ));
+
+    curl_setopt($curl,CURLOPT_FILE, $fp); //设置下载文件名称
 
     try{
-        curl_exec($curl);
+        $curl_rs = curl_exec($curl);
+//       var_dump($curl_rs);
     }catch(Exception $e){
         log_record($e->getMessage());
         var_dump($e->getMessage());

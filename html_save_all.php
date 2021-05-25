@@ -56,6 +56,8 @@ if(!function_exists('openssl_open')){
 $cache_ok = isset($_GET['cache_ok']) ? $_GET['cache_ok'] : false;
 $SAVE_DIR = isset($_REQUEST['save_dir']) ? $_REQUEST['save_dir'] : '';
 $cookieSiteurl = isset($_COOKIE['siteurl']) ? $_COOKIE['siteurl'] : '';
+$ISMOBILE = isset($_REQUEST['ismobile']) ? true : false;
+
 //endregion
 //===================================================================================================
 //  界面设计
@@ -73,6 +75,7 @@ if($cache_ok){
     echo "<form name='htmlsave' action='html_setp_down.php' method='post'  enctype='multipart/form-data' target='iframeState'>";
     echo " <iframe id='iframeState' name='iframeState' width='100%' height='300' frameborder='1'></iframe> <br >";
     echo "<input type='hidden' name='save_dir' value='{$SAVE_DIR}' />";
+    echo "<input type='hidden' name='ismobile' value='{$ISMOBILE}' />";
     echo "【<input type='submit' value='开始下载' />】";
     echo "【<a href='html_save_all.php'>  返回主页 </a>】";
     echo "【<a id='nextBtn' target='iframeState'>  继续下载 </a>】";
@@ -87,6 +90,7 @@ else{
     //1、 通过网址直接 保存
     echo "<form name='htmlsave' action='' method='post'  enctype='multipart/form-data'>";
     echo "1、网页源网址：<input id='siteurl' type='text' value='{$cookieSiteurl}' name='siteurl' style='width:800px;border: 2px solid green;height: 30px;' placeholder='请输入网址不带参数'/>";
+    echo "【<input type='checkbox' name='ismobile' id='ismobile' value='1'><label for='ismobile'>手机版</label>】";
     echo "<span style='color:red'>* 必填（可以只写网址-网页自动下载，需要带上协议如：http://www.baidu.com） </span> <hr />";
     //2、通过直接复制 浏览器的源码  保存
     echo "2、网页源代码：<textarea name='sitecode' rows='20' cols='100' style='border: 2px solid green;' placeholder='请输入网页源代码'></textarea>";
@@ -125,13 +129,7 @@ else{
 			+function(){
 			    var cookies = document.cookie.split(\";\");
                 var domain = '.'+location.host;
-                console.log(cookies);
-                    for (var i = 0; i < cookies.length; i++) {
-                    var cookie = cookies[i];
-                    var eqPos = cookie.indexOf(\"=\");
-                    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-                    document.cookie = name + \"=;expires=Thu, 01 Jan 1970 00:00:00 GMT; Domain=\"+domain+\"; path=/\";
-                    }
+
                 if(cookies.length > 0)
                 {
                     for (var i = 0; i < cookies.length; i++) {
@@ -159,7 +157,7 @@ if(check_url($SITE_URL)){
 
     if(verity_url($SITE_URL)){
 
-        $SITE_CODE = empty($SITE_CODE) ? get_html_code($SITE_URL) : $SITE_CODE;
+        $SITE_CODE = empty($SITE_CODE) ? get_html_code($SITE_URL, $ISMOBILE) : $SITE_CODE;
         $SITE_BODY = $SITE_CODE;
         //HTML代码替换为本地路径
         $SITE_BODY = str_ireplace($SITE_URL, '', $SITE_BODY);
@@ -242,7 +240,7 @@ if(check_url($SITE_URL)){
 
         echo "
    <script>
-        setTimeout(function(){location.href='html_save_all.php?cache_ok=1&save_dir=' + encodeURI('" . ($SAVE_DIR) . "');},1000);
+        setTimeout(function(){location.href='html_save_all.php?cache_ok=1&save_dir=' + encodeURI('" . ($SAVE_DIR) . "') + '&ismobile=" . ($ISMOBILE) . "';},1000);
    </script>
 ";
 
@@ -405,7 +403,13 @@ function parse_js_src(&$body, $matchAtomic = 2){
  * @param $url
  * @return mixed
  */
-function get_html_code($url){
+function get_html_code($url, $ismobile=false){
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    //添加手机版UA
+    if($ismobile){
+        $user_agent = 'Mozilla/5.0 (Linux; Android 9.0; BKL-AL20 Build/HUAWEIBKL-AL20; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.2987.132 MQQBrowser/6.2 TBS/044409 Mobile Safari/537.36 wxwork/2.7.2 MicroMessenger/6.3.22 NetType/WIFI Language/zh';
+    }
+
     //curl 库开始下载
     $curl = curl_init();
     curl_setopt($curl,CURLOPT_URL, $url); // 要访问的地址
@@ -415,12 +419,12 @@ function get_html_code($url){
 
     curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // 对认证证书来源的检查
     curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2); // 从证书中检查SSL加密算法是否存在 只有在cURL低于7.28.1时CURLOPT_SSL_VERIFYHOST才支持使用1表示true，高于这个版本就需要使用2表示了（true也不行）。
-    curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']); // 模拟用户使用的浏览器
+    curl_setopt($curl, CURLOPT_USERAGENT, $user_agent); // 模拟用户使用的浏览器
     curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
     curl_setopt($curl, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
 //    curl_setopt($curl, CURLOPT_POST, 1); // 发送一个常规的Post请求
 //    curl_setopt($curl, CURLOPT_POSTFIELDS, $data); // Post提交的数据包
-    curl_setopt($curl, CURLOPT_TIMEOUT, 2000); // 设置超时限制防止死循环
+    curl_setopt($curl, CURLOPT_TIMEOUT, 10000); // 设置超时限制防止死循环
     curl_setopt($curl, CURLOPT_HEADER, 0); // 显示返回的Header区域内容
     curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); // 获取的信息以文件流的形式返回
 
