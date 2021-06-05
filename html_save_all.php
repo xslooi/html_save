@@ -90,7 +90,7 @@ else{
     //1、 通过网址直接 保存
     echo "<form name='htmlsave' action='' method='post'  enctype='multipart/form-data'>";
     echo "1、网页源网址：<input id='siteurl' type='text' value='{$cookieSiteurl}' name='siteurl' style='width:800px;border: 2px solid green;height: 30px;' placeholder='请输入网址不带参数'/>";
-    echo "【<input type='checkbox' name='ismobile' id='ismobile' value='1'><label for='ismobile'>手机版</label>】";
+    echo "【<input type='checkbox' name='ismobile' id='ismobile' value='1' checked='checked'><label for='ismobile'>手机版</label>】";
     echo "<span style='color:red'>* 必填（可以只写网址-网页自动下载，需要带上协议如：http://www.baidu.com） </span> <hr />";
     //2、通过直接复制 浏览器的源码  保存
     echo "2、网页源代码：<textarea name='sitecode' rows='20' cols='100' style='border: 2px solid green;' placeholder='请输入网页源代码'></textarea>";
@@ -165,6 +165,9 @@ if(check_url($SITE_URL)){
         $SITE_BODY = str_ireplace("href='/", "href='", $SITE_BODY);
         $SITE_BODY = str_ireplace('src="/', 'src="', $SITE_BODY);
         $SITE_BODY = str_ireplace("src='/", "src='", $SITE_BODY);
+        $SITE_BODY = preg_replace('/url\s*\(/', 'url(', $SITE_BODY);
+        $SITE_BODY = str_ireplace("url('/", "url('", $SITE_BODY);
+        $SITE_BODY = str_ireplace('url(/', 'url(', $SITE_BODY);
         // 网页代码替换为本地END
 //        $SITE_CODE = <<<HTML
 //        <style>
@@ -311,7 +314,7 @@ function parse_img_src(&$body, $matchAtomic = 1){
     $useful_src = array();
     foreach ($src_links as $key=>$value)
     {
-        $useful_src[] = $value[$matchAtomic];
+        $useful_src[] = str_replace(array('./'), array(''), $value[$matchAtomic]);
     }
 
     return $useful_src;
@@ -529,6 +532,8 @@ function get_save_dir($url){
     $url = str_ireplace('http://', '', $url);
     $url = str_ireplace('https://', '', $url);
     $url = str_ireplace('/', '_', $url);
+    $url = str_ireplace('?', '$', $url);
+    $url = str_ireplace('#', '@', $url);
 //    增加转码
 //    $url = iconv('utf-8', 'gb2312//IGNORE', $url);
     return $url;

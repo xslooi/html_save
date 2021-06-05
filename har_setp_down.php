@@ -66,11 +66,17 @@ if(file_exists('./' .$SAVE_DIR. '/'. 'har_parse_content.php')){
 
 
 echo "<h1 style='color:green'>========全部文件下载完成！=========</h1>";
-echo "<script>alert('恭喜，全部文件下载完成！');</script>";
 //删除配置和解析文件
 unlink($SAVE_DIR. '/'. 'har_config.php');
 unlink($HAR_PATH);
-
+//打开文件夹
+$command = escapeshellcmd('start ' . $SAVE_DIR);
+if(false !== system($command)){
+    echo "<script>alert('恭喜，全部文件下载完成！并已打开文件夹。');</script>";
+}
+else{
+    echo "<script>alert('恭喜，全部文件下载完成！');</script>";
+}
 
 //======================================================================================================================
 //  下边是处理函数

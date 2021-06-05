@@ -79,7 +79,7 @@ else{
     //1、 通过网址直接 保存
     echo "<form name='htmlsave' action='' method='post'  enctype='multipart/form-data'>";
     echo "1、保存目录或网址：<input type='text' value='{$cookieSiteurl}' name='siteurl' style='width:600px;border: 2px solid green;height: 30px;'/> ";
-    echo "【<input type='checkbox' name='ismobile' id='ismobile' value='1'><label for='ismobile'>手机版</label>（仅对下载HTML有效）】";
+    echo "【<input type='checkbox' name='ismobile' id='ismobile' value='1' checked='checked'><label for='ismobile'>手机版</label>（仅对下载HTML有效）】";
     echo "<span style='color:red'>* 必填 （网站主域名需要带协议，可以 / 结尾，二级页面也用主域名不用带参数） </span> <hr />";
 //2、通过直接复制 浏览器的源码  保存
 //    echo "2、网页源代码：<textarea name='sitecode' rows='20' cols='100' style='border: 2px solid green;'></textarea>";
@@ -202,7 +202,9 @@ $SITE_BODY = preg_replace("/src[ |\t]*=[ |\t]*\"\//i", "src=\"", $SITE_BODY);
 $SITE_BODY = preg_replace("/href[ |\t]*=[ |\t]*\'\//i", "href='", $SITE_BODY);
 $SITE_BODY = preg_replace("/href[ |\t]*=[ |\t]*\"\//i", "href=\"", $SITE_BODY);
 
-$SITE_BODY = str_ireplace('(/', '(', $SITE_BODY);
+$SITE_BODY = preg_replace('/url\s*\(/', 'url(', $SITE_BODY);
+$SITE_BODY = str_ireplace("url('/", "url('", $SITE_BODY);
+$SITE_BODY = str_ireplace('url(/', 'url(', $SITE_BODY);
 
 //输出HTML
 $save_html_path = $save_dir .'/'. get_domian($SITE_URL) . date('_Y-m-d-h-i-s') . '.html';

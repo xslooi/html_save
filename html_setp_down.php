@@ -27,7 +27,8 @@ $is_chinese = chinese_test($SAVE_DIR);
 //if((false !== $is_chinese) && ('gb2312' !== $is_chinese) ){
 if((false !== $is_chinese)  ){
     $SAVE_DIR = mb_convert_encoding($SAVE_DIR,'gb2312',"utf-8");
-}else{
+}
+else{
     $SAVE_DIR = urldecode($SAVE_DIR);
 }
 
@@ -105,8 +106,14 @@ if(file_exists('./' .$SAVE_DIR. '/'. 'useful_cssfile_url.log')){
 
 
 echo "<h1>========全部文件下载完成！=========</h1>";
-echo "<script>alert('恭喜，全部文件下载完成！');</script>";
-
+//打开文件夹
+$command = escapeshellcmd('start ' . $SAVE_DIR);
+if(false !== system($command)){
+    echo "<script>alert('恭喜，全部文件下载完成！并已打开文件夹。');</script>";
+}
+else{
+    echo "<script>alert('恭喜，全部文件下载完成！');</script>";
+}
 
 //===================================================================================================
 //  下边是处理函数
@@ -199,6 +206,9 @@ function down_setp($count, $filename, $downloadArray){
             elseif('//' == $second_str){
                 $css_in_urls[] = 'http:' . $value;
             }
+            elseif('./' == $second_str){
+                $css_in_urls[] = substr($value, 1);
+            }
             elseif('/' == $first_str){
                 $css_in_urls[] = $value;
             }
@@ -268,6 +278,11 @@ function down_setp($count, $filename, $downloadArray){
  */
 function verity_url($url)
 {
+    $parse_url = parse_url($url);
+    if(!isset($parse_url['host'])){
+        return false;
+    }
+
     // 配置header
     stream_context_set_default(
         array(
@@ -465,6 +480,8 @@ function get_http_url($url){
     global $SITE_URL;
     $parse_url = parse_url($SITE_URL);
 
+//    var_dump($SITE_URL);
+//    var_dump($parse_url);
 //    echo $url;
 //    exit;
 
@@ -485,11 +502,19 @@ function get_http_url($url){
     }
     elseif(-1 < strpos($url, '?')){
         exit($url . 'is Parameter!');
-    }else{
-        //如果有 index.html
-//        如果后缀没有index.html
-        $fileurl = dirname($SITE_URL);
-        $fileurl = $fileurl . '/' . $url;
+    }
+    else{
+        // 如果有 index.html
+        if(isset($parse_url['path']) && false !== strpos(substr($parse_url['path'], -5), '.')){
+            $fileurl = dirname($SITE_URL);
+            $fileurl = $fileurl . '/' . $url;
+        }
+        else{
+            // 如果后缀没有index.html
+            $fileurl = $parse_url['scheme'] . '://' . $parse_url['host'] . '/' . $url;
+        }
+
+//        var_dump($fileurl);exit;
     }
 
 
@@ -499,6 +524,7 @@ function get_http_url($url){
     if(false !== $is_chinese) {
         $fileurl = mb_convert_encoding($fileurl, 'utf-8', 'gb2312');
     }
+
 //    echo $fileurl;exit;
 
     return $fileurl;
