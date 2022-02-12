@@ -25,7 +25,7 @@ $ISMOBILE = empty($_REQUEST['ismobile']) ? '' : $_REQUEST['ismobile'];
 //编码检测与转换 windows 系统
 $is_chinese = chinese_test($SAVE_DIR);
 //if((false !== $is_chinese) && ('gb2312' !== $is_chinese) ){
-if((false !== $is_chinese)  ){
+if((false !== $is_chinese) && 'utf-8' == $is_chinese){
     $SAVE_DIR = mb_convert_encoding($SAVE_DIR,'gb2312',"utf-8");
 }
 else{
@@ -132,7 +132,7 @@ function down_setp($count, $filename, $downloadArray){
 //    var_dump($filename);exit;
 //    检测编码与转换
     $is_chinese = chinese_test($SAVE_DIR);
-    if(false !== $is_chinese) {
+    if(false !== $is_chinese && 'gb2312' == $is_chinese) {
         $SAVE_DIR = mb_convert_encoding($SAVE_DIR, 'utf-8', 'gb2312');
     }
 
@@ -421,7 +421,7 @@ function parse_downurl($url, $filename=''){
 //    $SAVE_DIR = '';
 //    检测编码与转换
     $is_chinese = chinese_test($SAVE_DIR);
-    if(false !== $is_chinese) {
+    if(false !== $is_chinese && 'utf-8' == $is_chinese) {
         $SAVE_DIR = mb_convert_encoding($SAVE_DIR, 'gb2312', 'utf-8');
     }
 
@@ -521,7 +521,7 @@ function get_http_url($url){
 //    echo $fileurl;exit;
     //    检测编码与转换
     $is_chinese = chinese_test($fileurl);
-    if(false !== $is_chinese) {
+    if(false !== $is_chinese && 'gb2312' == $is_chinese) {
         $fileurl = mb_convert_encoding($fileurl, 'utf-8', 'gb2312');
     }
 
@@ -634,7 +634,7 @@ function log_record($data){
     global $SAVE_DIR;
 //    检测编码与转换
     $is_chinese = chinese_test($SAVE_DIR);
-    if(false !== $is_chinese) {
+    if(false !== $is_chinese && 'utf-8' == $is_chinese) {
         $SAVE_DIR = mb_convert_encoding($SAVE_DIR, 'gb2312', 'utf-8');
     }
 

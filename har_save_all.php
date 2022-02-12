@@ -202,6 +202,28 @@ $SITE_BODY = preg_replace("/src[ |\t]*=[ |\t]*\"\//i", "src=\"", $SITE_BODY);
 $SITE_BODY = preg_replace("/href[ |\t]*=[ |\t]*\'\//i", "href='", $SITE_BODY);
 $SITE_BODY = preg_replace("/href[ |\t]*=[ |\t]*\"\//i", "href=\"", $SITE_BODY);
 
+// 替换a链接为 javascript:;
+$matches = array();
+$replace_a = array();
+
+preg_match_all('/<a [^>]+>/i', $SITE_BODY, $matches);
+foreach($matches[0] as $item){
+    if(preg_match('/href="(.*?)"/', $item, $replace_a)){
+        if(isset($replace_a[1]) && (
+                0 !== stripos($replace_a[1], 'javascript')
+                && 0 !== stripos($replace_a[1], 'tel')
+                && 0 !== stripos($replace_a[1], 'tencent')
+            )
+        ){
+            $replace_href = str_replace($replace_a[1], 'javascript:;', $item);
+            $SITE_BODY = str_replace($item, $replace_href, $SITE_BODY);
+        }
+
+        $replace_a = array();
+    }
+}
+// 替换a链接为 javascript:; END
+
 $SITE_BODY = preg_replace('/url\s*\(/', 'url(', $SITE_BODY);
 $SITE_BODY = str_ireplace("url('/", "url('", $SITE_BODY);
 $SITE_BODY = str_ireplace('url(/', 'url(', $SITE_BODY);
@@ -259,7 +281,7 @@ function har_parse($har_path){
                 }
                 //解析提取出来的参数
                 $request_arr = array(
-                    'url' => $item['request']['url'],
+                    'url' => urldecode($item['request']['url']), // 中文url解码
                     'mimeType' => isset($item['response']['content']['mimeType']) ? $item['response']['content']['mimeType'] : '',
                 );
                 $parse_result[] = $request_arr;
@@ -493,7 +515,7 @@ function log_record($data){
     global $save_dir;
 //    检测编码与转换
     $is_chinese = chinese_test($save_dir);
-    if(false !== $is_chinese) {
+    if(false !== $is_chinese && 'utf-8' == $is_chinese) {
         $save_dir = mb_convert_encoding($save_dir, 'gb2312', 'utf-8');
     }
 

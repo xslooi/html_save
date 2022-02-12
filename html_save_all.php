@@ -160,14 +160,48 @@ if(check_url($SITE_URL)){
         $SITE_CODE = empty($SITE_CODE) ? get_html_code($SITE_URL, $ISMOBILE) : $SITE_CODE;
         $SITE_BODY = $SITE_CODE;
         //HTML代码替换为本地路径
-        $SITE_BODY = str_ireplace($SITE_URL, '', $SITE_BODY);
+        $SITE_BODY = preg_replace('/href\s*=\s*/i', 'href=', $SITE_BODY);
+        $SITE_BODY = preg_replace('/src\s*=\s*/i', 'src=', $SITE_BODY);
+
+        // 替换a链接为 javascript:;
+        $matches = array();
+        $replace_a = array();
+
+        preg_match_all('/<a [^>]+>/i', $SITE_BODY, $matches);
+        foreach($matches[0] as $item){
+            if(preg_match('/href="(.*?)"/', $item, $replace_a)){
+                if(isset($replace_a[1]) && (
+                        0 !== stripos($replace_a[1], 'javascript')
+                        && 0 !== stripos($replace_a[1], 'tel')
+                        && 0 !== stripos($replace_a[1], 'tencent')
+                    )
+                ){
+                    $replace_href = str_replace($replace_a[1], 'javascript:;', $item);
+                    $SITE_BODY = str_replace($item, $replace_href, $SITE_BODY);
+                }
+
+                $replace_a = array();
+            }
+        }
+        // 替换a链接为 javascript:; END
+
         $SITE_BODY = str_ireplace('href="/', 'href="', $SITE_BODY);
         $SITE_BODY = str_ireplace("href='/", "href='", $SITE_BODY);
         $SITE_BODY = str_ireplace('src="/', 'src="', $SITE_BODY);
         $SITE_BODY = str_ireplace("src='/", "src='", $SITE_BODY);
-        $SITE_BODY = preg_replace('/url\s*\(/', 'url(', $SITE_BODY);
+
+        $SITE_BODY = preg_replace('/url\s*\(/i', 'url(', $SITE_BODY);
+        $SITE_BODY = preg_replace('/<img .*?=[\'|\"]?data:image.*?[\'|\"].*?>/i', '', $SITE_BODY); // 去掉base64的图片不需要下载
         $SITE_BODY = str_ireplace("url('/", "url('", $SITE_BODY);
         $SITE_BODY = str_ireplace('url(/', 'url(', $SITE_BODY);
+        
+        $pare_url = parse_url($SITE_URL);
+        $SITE_BODY = str_ireplace($pare_url['scheme'] . '://' . $pare_url['host'] . '/', '', $SITE_BODY);
+
+//        var_dump($SITE_BODY);
+//        var_dump($SITE_URL);
+//        var_dump(parse_url($SITE_URL));
+//        exit;
         // 网页代码替换为本地END
 //        $SITE_CODE = <<<HTML
 //        <style>
@@ -291,6 +325,8 @@ function pretreatment_html(&$body){
     $body = preg_replace("/( )+/", " ", $body);
 
     $body = preg_replace(array("/src( )?=( )?/i", "/href( )?=( )?/i", "/( )?>/i"), array("src=", "href=", ">"), $body);
+
+    $body = preg_replace('/<img .*?=[\'|\"]?data:image.*?[\'|\"].*?>/i', '', $body); // 去掉base64的图片不需要下载
 
 //    exit($body);
     return $body;
@@ -479,6 +515,11 @@ function check_url($url){
  */
 function verity_url($url)
 {
+    $parse_url = parse_url($url);
+    if(!isset($parse_url['host'])){
+        return false;
+    }
+
     // 配置header
     stream_context_set_default(
         array(
